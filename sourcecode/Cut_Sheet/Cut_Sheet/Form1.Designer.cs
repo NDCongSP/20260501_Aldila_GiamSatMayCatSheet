@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.label1 = new System.Windows.Forms.Label();
             this._labStation = new System.Windows.Forms.Label();
@@ -97,7 +98,6 @@
             this._txtQR1.Name = "_txtQR1";
             this._txtQR1.Size = new System.Drawing.Size(307, 92);
             this._txtQR1.TabIndex = 1;
-            this._txtQR1.Text = "SK02022";
             // 
             // _txtQR2
             // 
@@ -141,7 +141,6 @@
             this._txtTextQr1.ReadOnly = true;
             this._txtTextQr1.Size = new System.Drawing.Size(868, 92);
             this._txtTextQr1.TabIndex = 9;
-            this._txtTextQr1.Text = "dfafdsajfhasDFKJASDHFA KJCHASDKLFHASDKFL HUASDOFUHASLDF ÁDFGASDFG";
             // 
             // _txtTextQr2
             // 
@@ -193,6 +192,7 @@
             this.Controls.Add(this._labStation);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.pictureBox1);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "Form1";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Form1";

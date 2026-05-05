@@ -24,6 +24,14 @@ namespace Cut_Sheet
         private string _plcIp = string.Empty;
         private int _plcPort = 502;
 
+        /// <summary>
+        /// địa chỉ tuyệt đối thanh ghi holding cho vùng nhớ D0
+        /// </summary>
+        private ushort _d0Register = 4096;
+        private ushort _x0Address = 57344;
+
+        private bool _x0Value = false;
+
         public Form1()
         {
             InitializeComponent();
@@ -34,7 +42,7 @@ namespace Cut_Sheet
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (_plc!=null)
+            if (_plc != null)
             {
                 _plc.Dispose();
             }
@@ -60,26 +68,55 @@ namespace Cut_Sheet
 
             if (_plc.EnsureConnection())
             {
-                _plc.WriteRegisterSafe(0, 0);
+                _plc.WriteRegisterSafe(_d0Register, 0);
             }
-
+            
             Task.Run(() =>
             {
                 while (true)
                 {
-                    var data = _plc.ReadRegistersSafe(0, 1);
+                    var data = _plc.ReadHoldingRegistersSafe(_d0Register, 1);
+                    // 1. Đọc Digital Output (Coils) - Ví dụ: Trạng thái Relay
+                    bool[] coils = _plc.ReadCoilsSafe(_x0Address, 1);
+
+                    if (coils!=null)
+                    {
+                        _x0Value = coils[0];
+                    }
 
                     InvokeIfRequired(this, () =>
                     {
                         if (data != null)
                         {
-                            _labStatus.Text = $"[ {DateTime.Now:HH:mm:ss} ] Dữ liệu: {data[0]}";
+                            _labStatus.Text = $"[ {DateTime.Now:HH:mm:ss} ] TT kết nối PLC: {_plc.IsConnected} - Cảm biến: {_x0Value} - Cho phép máy chạy: {data[0]}";
                         }
                         else
                         {
                             _labStatus.Text = $"[ {DateTime.Now:HH:mm:ss} ] Mất kết nối PLC, đang chờ thử lại...";
                         }
                     });
+
+                    if (!_x0Value)
+                    {
+                        _qrCode1 = string.Empty;
+                        _qrCode2 = string.Empty;
+
+                        InvokeIfRequired(this, () =>
+                        {
+                            _txtQR1.Text = string.Empty;
+                            _txtQR2.Text = string.Empty;
+                            _txtTextQr1.Text = string.Empty;
+                            _txtTextQr2.Text = string.Empty;
+
+                            _labResult.Text = "";
+                            _labResult.BackColor = Color.DarkGray;
+
+                            _btnStartStop.Text = "BẮT ĐẦU";
+                            _btnStartStop.BackColor = Color.FromArgb(0, 192, 0);
+
+                            _txtQR1.Focus();
+                        });
+                    }
 
                     Thread.Sleep(1000); // Đợi 1 giây trước khi đọc lần tiếp theo
                 }
@@ -139,7 +176,7 @@ namespace Cut_Sheet
                 if (_result)
                 {
                     //MessageBox.Show("KẾT QUẢ: ĐÚNG");
-                    _plc.WriteRegisterSafe(0, 1);
+                    _plc.WriteRegisterSafe(_d0Register, 1);
 
                     InvokeIfRequired(this, () =>
                     {
@@ -152,7 +189,7 @@ namespace Cut_Sheet
                 else
                 {
                     //MessageBox.Show("KẾT QUẢ: SAI");
-                    _plc.WriteRegisterSafe(0, 0);
+                    _plc.WriteRegisterSafe(_d0Register, 0);
 
                     InvokeIfRequired(this, () =>
                     {
@@ -165,7 +202,7 @@ namespace Cut_Sheet
             }
             else
             {
-                _plc.WriteRegisterSafe(0, 0);
+                _plc.WriteRegisterSafe(_d0Register, 0);
 
                 _qrCode1 = string.Empty;
                 _qrCode2 = string.Empty;
@@ -180,10 +217,11 @@ namespace Cut_Sheet
                     _labResult.Text = "";
                     _labResult.BackColor = Color.DarkGray;
 
+                    _btnStartStop.Text = "BẮT ĐẦU";
+                    _btnStartStop.BackColor = Color.FromArgb(0, 192, 0);
+
                     _txtQR1.Focus();
                 });
-                _btnStartStop.Text = "BẮT ĐẦU";
-                _btnStartStop.BackColor = Color.FromArgb(0, 192, 0);
             }
         }
 

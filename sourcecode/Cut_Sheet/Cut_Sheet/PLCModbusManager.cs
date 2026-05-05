@@ -30,7 +30,7 @@ namespace Cut_Sheet
 
             try
             {
-                Console.WriteLine($"Đang thử kết nối lại tới {_ipAddress}...");
+                Console.WriteLine($"Try to reconnect to {_ipAddress}...");
 
                 // Giải phóng tài nguyên cũ trước khi tạo mới
                 _tcpClient?.Close();
@@ -50,55 +50,86 @@ namespace Cut_Sheet
                 _modbusMaster.Transport.Retries = 3;
                 _modbusMaster.Transport.ReadTimeout = 1000;
 
-                Console.WriteLine("Kết nối thành công!");
+                Console.WriteLine("Connected!");
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Lỗi Reconnect: {ex.Message}");
+                Console.WriteLine($"Error Reconnect: {ex.Message}");
                 return false;
             }
         }
 
-        /// <summary>
-        /// Đọc dữ liệu an toàn với cơ chế tự động thử lại
-        /// </summary>
-        public ushort[] ReadRegistersSafe(ushort startAddress, ushort numberOfPoints)
+        // --- 1. COILS (Boolean - Read/Write) ---
+        public bool[] ReadCoilsSafe(ushort startAddress, ushort numberOfPoints, byte slaveId = 1)
         {
-            if (_isDisposing) return null;
-
             try
             {
-                if (EnsureConnection())
-                {
-                    return _modbusMaster.ReadHoldingRegisters(1, startAddress, numberOfPoints);
-                }
+                if (EnsureConnection()) return _modbusMaster.ReadCoils(slaveId, startAddress, numberOfPoints);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Lỗi khi đọc: {ex.Message}");
-            }
-            return null; // Trả về null nếu mọi nỗ lực kết nối/đọc thất bại
+            catch { }
+            return null;
         }
 
-        /// <summary>
-        /// Ghi dữ liệu an toàn
-        /// </summary>
-        public bool WriteRegisterSafe(ushort address, ushort value)
+        public bool WriteCoilSafe(ushort address, bool value, byte slaveId = 1)
         {
             try
             {
                 if (EnsureConnection())
                 {
-                    _modbusMaster.WriteSingleRegister(1, address, value);
+                    _modbusMaster.WriteSingleCoil(slaveId, address, value);
                     return true;
                 }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Lỗi khi ghi: {ex.Message}");
-            }
+            catch { }
             return false;
+        }
+
+        // --- 2. DISCRETE INPUTS (Boolean - Read Only) ---
+        public bool[] ReadInputsSafe(ushort startAddress, ushort numberOfPoints, byte slaveId = 1)
+        {
+            try
+            {
+                if (EnsureConnection()) return _modbusMaster.ReadInputs(slaveId, startAddress, numberOfPoints);
+            }
+            catch { }
+            return null;
+        }
+
+        // --- 3. HOLDING REGISTERS (16-bit - Read/Write) ---
+        public ushort[] ReadHoldingRegistersSafe(ushort startAddress, ushort numberOfPoints, byte slaveId = 1)
+        {
+            try
+            {
+                if (EnsureConnection()) return _modbusMaster.ReadHoldingRegisters(slaveId, startAddress, numberOfPoints);
+            }
+            catch { }
+            return null;
+        }
+
+        public bool WriteRegisterSafe(ushort address, ushort value, byte slaveId = 1)
+        {
+            try
+            {
+                if (EnsureConnection())
+                {
+                    _modbusMaster.WriteSingleRegister(slaveId, address, value);
+                    return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        // --- 4. INPUT REGISTERS (16-bit - Read Only) ---
+        public ushort[] ReadInputRegistersSafe(ushort startAddress, ushort numberOfPoints, byte slaveId = 1)
+        {
+            try
+            {
+                if (EnsureConnection()) return _modbusMaster.ReadInputRegisters(slaveId, startAddress, numberOfPoints);
+            }
+            catch { }
+            return null;
         }
 
         public void Dispose()
