@@ -118,7 +118,7 @@ namespace Cut_Sheet
                         });
                     }
 
-                    Thread.Sleep(1000); // Đợi 1 giây trước khi đọc lần tiếp theo
+                    Thread.Sleep(200); // Đợi 1 giây trước khi đọc lần tiếp theo
                 }
             });
         }
@@ -138,6 +138,8 @@ namespace Cut_Sheet
 
                 // Tự động nhảy sang ô nhập thứ 2 để tiện cho người dùng
                 _btnStartStop.Focus();
+
+                _btnStartStop_Click(sender, e);
             }
         }
 
