@@ -124,7 +124,7 @@
             // 
             this._labResult.BackColor = System.Drawing.SystemColors.WindowFrame;
             this._labResult.Font = new System.Drawing.Font("Microsoft Sans Serif", 30F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this._labResult.Location = new System.Drawing.Point(12, 448);
+            this._labResult.Location = new System.Drawing.Point(10, 452);
             this._labResult.Name = "_labResult";
             this._labResult.Size = new System.Drawing.Size(1227, 116);
             this._labResult.TabIndex = 8;
