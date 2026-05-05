@@ -100,6 +100,7 @@ namespace Cut_Sheet
                     {
                         _qrCode1 = string.Empty;
                         _qrCode2 = string.Empty;
+                        _isRunning = false;
 
                         InvokeIfRequired(this, () =>
                         {
@@ -193,6 +194,8 @@ namespace Cut_Sheet
                     //MessageBox.Show("KẾT QUẢ: SAI");
                     _plc.WriteRegisterSafe(_d0Register, 0);
 
+                    _isRunning = false;
+
                     InvokeIfRequired(this, () =>
                     {
                         _labResult.Text = "MÃ PREPREG KHÔNG HỢP LỆ";
@@ -208,6 +211,7 @@ namespace Cut_Sheet
 
                 _qrCode1 = string.Empty;
                 _qrCode2 = string.Empty;
+                _isRunning = false;
 
                 InvokeIfRequired(this, () =>
                 {
