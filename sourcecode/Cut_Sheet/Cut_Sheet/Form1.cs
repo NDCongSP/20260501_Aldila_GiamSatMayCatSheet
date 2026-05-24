@@ -242,5 +242,10 @@ namespace Cut_Sheet
                 action();
             }
         }
+
+        private void _txtTextQr1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
     }
 }
