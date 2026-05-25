@@ -18,6 +18,7 @@ namespace Cut_Sheet
 
         private string _qrCode1 = string.Empty;
         private string _qrCode2 = string.Empty;
+
         public bool _result { get; set; } = false;
 
         PLCModbusManager _plc;
@@ -70,7 +71,7 @@ namespace Cut_Sheet
             {
                 _plc.WriteRegisterSafe(_d0Register, 0);
             }
-            
+
             Task.Run(() =>
             {
                 while (true)
@@ -79,7 +80,7 @@ namespace Cut_Sheet
                     // 1. Đọc Digital Output (Coils) - Ví dụ: Trạng thái Relay
                     bool[] coils = _plc.ReadCoilsSafe(_x0Address, 1);
 
-                    if (coils!=null)
+                    if (coils != null)
                     {
                         _x0Value = coils[0];
                     }
@@ -129,9 +130,31 @@ namespace Cut_Sheet
             if (e.KeyCode == Keys.Enter)
             {
                 var t = sender as TextBox;
+
+                if (!t.Text.Contains("-")
+                    || t.Text.EndsWith("--") || t.Text.Contains("\"-")
+                    )
+                {
+                    MessageBox.Show("QR code không hợp lệ.");
+
+                    _qrCode2 = string.Empty;
+
+                    InvokeIfRequired(this, () =>
+                    {
+                        _txtQR2.Text = string.Empty;
+                        _txtTextQr2.Text = string.Empty;
+
+                        _txtQR2.Focus();
+                    });
+
+                    return;
+                }
+
                 _qrCode2 = t.Text;
 
-                InvokeIfRequired(_txtTextQr2, () => _txtTextQr2.Text = _qrCode2);
+                var arr = _qrCode2.Split('-');
+                InvokeIfRequired(_txtTextQr2, () => _txtTextQr2.Text = arr[1]);
+                InvokeIfRequired(_txtQR2, () => _txtQR2.Text = arr[0]);
 
                 // THÊM 2 DÒNG NÀY:
                 e.Handled = true;
@@ -149,9 +172,32 @@ namespace Cut_Sheet
             if (e.KeyCode == Keys.Enter)
             {
                 var t = sender as TextBox;
+
+                if (!t.Text.Contains("-") 
+                    || (!t.Text.EndsWith("--") && !t.Text.Contains("\"-"))
+                    )
+                {
+                    MessageBox.Show("QR code không hợp lệ.");
+
+                    _qrCode1 = string.Empty;
+
+                    InvokeIfRequired(this, () =>
+                    {
+                        _txtQR1.Text = string.Empty;
+                        _txtTextQr1.Text = string.Empty;
+
+                        _txtQR1.Focus();
+                    });
+
+                    return;
+                }
+
                 _qrCode1 = t.Text;
 
-                InvokeIfRequired(_txtTextQr1, () => _txtTextQr1.Text = _qrCode1);
+
+                var arr = _qrCode1.Split('-');
+                InvokeIfRequired(_txtTextQr1, () => _txtTextQr1.Text = arr[1]);
+                InvokeIfRequired(_txtQR1, () => _txtQR1.Text = arr[0]);
 
                 // THÊM 2 DÒNG NÀY:
                 e.Handled = true;
@@ -174,7 +220,10 @@ namespace Cut_Sheet
 
             if (_isRunning)
             {
-                _result = _qrCode1 == _qrCode2;
+                var arr1 = _qrCode1.Split('-');
+                var arr2 = _qrCode2.Split('-');
+
+                _result = arr1[0].Trim() == arr2[0].Trim();
 
                 if (_result)
                 {
@@ -194,14 +243,23 @@ namespace Cut_Sheet
                     //MessageBox.Show("KẾT QUẢ: SAI");
                     _plc.WriteRegisterSafe(_d0Register, 0);
 
+                    _qrCode1 = string.Empty;
+                    _qrCode2 = string.Empty;
                     _isRunning = false;
 
                     InvokeIfRequired(this, () =>
                     {
+                        _txtQR1.Text = string.Empty;
+                        _txtQR2.Text = string.Empty;
+                        _txtTextQr1.Text = string.Empty;
+                        _txtTextQr2.Text = string.Empty;
+
                         _labResult.Text = "MÃ PREPREG KHÔNG HỢP LỆ";
                         _labResult.BackColor = Color.Red;
                         _btnStartStop.Text = "BẮT ĐẦU";
-                        _btnStartStop.BackColor = Color.FromArgb(0, 192, 0); ;
+                        _btnStartStop.BackColor = Color.FromArgb(0, 192, 0);
+
+                        _txtQR1.Focus();
                     });
                 }
             }
