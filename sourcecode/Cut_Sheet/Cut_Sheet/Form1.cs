@@ -21,6 +21,10 @@ namespace Cut_Sheet
 
         public bool _result { get; set; } = false;
 
+        // Patterns nhận dạng QR Phiếu Cắt — load từ App.config, refresh khi mở FormConfig
+        private string[] _cutSheetEndsWith = new string[0];
+        private string[] _cutSheetContains = new string[0];
+
         PLCModbusManager _plc;
         private string _plcIp = string.Empty;
         private int _plcPort = 502;
@@ -49,6 +53,24 @@ namespace Cut_Sheet
             }
         }
 
+        private void LoadQrPatterns()
+        {
+            var endsWithStr = ConfigurationManager.AppSettings["CutSheetQR_EndsWith"] ?? string.Empty;
+            var containsStr = ConfigurationManager.AppSettings["CutSheetQR_Contains"] ?? string.Empty;
+
+            _cutSheetEndsWith = endsWithStr.Split(new[] { '|' }, System.StringSplitOptions.RemoveEmptyEntries);
+            _cutSheetContains = containsStr.Split(new[] { '|' }, System.StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        private bool IsCutSheetQr(string text)
+        {
+            foreach (var p in _cutSheetEndsWith)
+                if (text.EndsWith(p)) return true;
+            foreach (var p in _cutSheetContains)
+                if (text.Contains(p)) return true;
+            return false;
+        }
+
         private void Form1_Load(object sender, EventArgs e)
         {
             // Đọc giá trị dựa trên Key
@@ -56,8 +78,35 @@ namespace Cut_Sheet
             _plcIp = ConfigurationManager.AppSettings["PlcIp"];
             _plcPort = int.TryParse(ConfigurationManager.AppSettings["PlcPort"], out int value) ? value : 502;
 
+            LoadQrPatterns();
+
             _btnStartStop.Text = "BẮT ĐẦU";
             _btnStartStop.BackColor = Color.FromArgb(0, 192, 0);
+
+            // Thêm nút Config để mở FormConfig
+            var btnConfig = new Button
+            {
+                Text = "Cấu hình",
+                Font = new Font("Microsoft Sans Serif", 12F, FontStyle.Regular),
+                Location = new System.Drawing.Point(350, 594),
+                Size = new System.Drawing.Size(130, 100),
+                FlatStyle = FlatStyle.Flat,
+            };
+            btnConfig.Click += (s, args) =>
+            {
+                using (var login = new FormLogin())
+                {
+                    if (login.ShowDialog(this) != DialogResult.OK)
+                        return;
+                }
+
+                using (var frm = new FormConfig())
+                {
+                    frm.ShowDialog(this);
+                    LoadQrPatterns();
+                }
+            };
+            this.Controls.Add(btnConfig);
 
             _btnStartStop.Click += _btnStartStop_Click;
             _txtQR1.KeyDown += _txtQR1_KeyDown;
@@ -131,9 +180,8 @@ namespace Cut_Sheet
             {
                 var t = sender as TextBox;
 
-                if (!t.Text.Contains("-")
-                    || t.Text.EndsWith("--") || t.Text.Contains("\"-")
-                    )
+                // QR2 là cuộn Prepreg — hợp lệ khi KHÔNG khớp pattern phiếu cắt
+                if (!t.Text.Contains("-") || IsCutSheetQr(t.Text))
                 {
                     MessageBox.Show("QR code không hợp lệ.");
 
@@ -173,9 +221,8 @@ namespace Cut_Sheet
             {
                 var t = sender as TextBox;
 
-                if (!t.Text.Contains("-") 
-                    || (!t.Text.EndsWith("--") && !t.Text.Contains("\"-"))
-                    )
+                // QR1 là phiếu cắt — hợp lệ khi PHẢI khớp pattern phiếu cắt
+                if (!t.Text.Contains("-") || !IsCutSheetQr(t.Text))
                 {
                     MessageBox.Show("QR code không hợp lệ.");
 
