@@ -188,21 +188,26 @@ const delay = 350; // gán delay bằng 350
 ```yaml
 # Cập nhật phần này MỖI KHI kết thúc session làm việc
 active_context:
-  current_task: "Đã hoàn thành Fix Reconnect + Config QR Patterns"
-    
+  current_task: "Đã hoàn thành API Badge UI + Retry Queue"
+
   related_files:
     - "sourcecode/Cut_Sheet/Cut_Sheet/Form1.cs"
     - "sourcecode/Cut_Sheet/Cut_Sheet/PLCModbusManager.cs"
     - "sourcecode/Cut_Sheet/Cut_Sheet/FormConfig.cs"
     - "sourcecode/Cut_Sheet/Cut_Sheet/FormConfig.Designer.cs"
     - "sourcecode/Cut_Sheet/Cut_Sheet/App.config"
+
   blocked_by: ""
+
   next_step: >
-    API log đã hoàn thiện. Nếu cần tiếp tục:
+    Các tính năng chính đã hoàn thiện. Nếu cần tiếp tục:
     - Xác nhận với backend mapping field (QR2→prepregItem, QR1→prepregOrderItem)
     - Kiểm tra xem API có cần header xác thực (Bearer / API key) không
-    - Cân nhắc hiển thị badge nhỏ trên UI khi API call thành công/thất bại
+    - Test thực tế: quan sát badge màu xanh/đỏ khi có/không có mạng đến 192.168.96.10
+    - Test retry: tắt API server, quét QR → badge đỏ → bật lại API → sau 30s badge xanh
+
   last_session: "2026-05-27"
+
   open_questions:
     - "API 192.168.96.10 có yêu cầu header xác thực không?"
     - "Xác nhận mapping: QR2→prepregItem, QR1→prepregOrderItem — đúng không?"
@@ -261,6 +266,26 @@ Task hiện tại: [mô tả]. File cần làm việc: [list file].
 [CHORE]    package.json    — Upgrade Zod từ 3.21 → 3.23
 [REFACTOR] lib/api.ts      — Tách error handler thành hàm riêng handleApiError()
 ```
+
+### [2026-05-27] — Session: API Badge UI + Retry Queue
+
+```
+[FEAT]   Form1.cs   — Thêm badge Label (_labApiStatus) hiển thị trạng thái API (xanh/đỏ)
+[FEAT]   Form1.cs   — Tách TryPostAsync() riêng: trả về bool (true=2xx, false=lỗi)
+[FEAT]   Form1.cs   — PostCuttingValidatorAsync: khi thất bại → EnqueueRecord() + badge đỏ
+[FEAT]   Form1.cs   — EnqueueRecord(): ghi bản ghi thất bại vào api_retry_queue.txt (tab-delimited)
+[FEAT]   Form1.cs   — StartRetryLoopAsync() + RetryQueueAsync(): 30s/lần đọc file, thử lại, xoá khi thành công
+[REFACTOR] Form1.cs — PostCuttingValidatorAsync không còn static (cần truy cập _labApiStatus)
+```
+
+**Chi tiết:**
+- Badge tại X=500, Y=594, W=960, H=100 — nằm bên phải nút Bắt Đầu / Cấu hình
+- Màu xanh lá (`#00A000`) = gửi OK; màu đỏ cam (`OrangeRed`) = lỗi + đang chờ gửi lại
+- File hàng đợi: `<AppDir>/api_retry_queue.txt`, tab-delimited, 7 cột, mỗi dòng 1 bản ghi
+- Retry loop: mỗi 30 giây, không block UI, dừng khi form bị dispose
+- Bản ghi được xoá khỏi file ngay khi API trả về 2xx; file bị xoá khi hàng đợi rỗng
+
+---
 
 ### [2026-05-27] — Session: Aldila Cutting Validator API
 

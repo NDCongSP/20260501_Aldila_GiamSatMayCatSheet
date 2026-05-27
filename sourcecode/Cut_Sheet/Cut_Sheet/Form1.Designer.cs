@@ -41,6 +41,8 @@
             this._txtTextQr2 = new System.Windows.Forms.TextBox();
             this._labStatus = new System.Windows.Forms.Label();
             this._btnStartStop = new System.Windows.Forms.Button();
+            this._btnConfig = new System.Windows.Forms.Button();
+            this._labApiStatus = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
             // 
@@ -176,11 +178,34 @@
             this._btnStartStop.Text = "KẾT THÚC";
             this._btnStartStop.UseVisualStyleBackColor = false;
             // 
+            // _btnConfig
+            // 
+            this._btnConfig.BackColor = System.Drawing.SystemColors.ButtonFace;
+            this._btnConfig.Font = new System.Drawing.Font("Microsoft Sans Serif", 30F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this._btnConfig.Location = new System.Drawing.Point(403, 594);
+            this._btnConfig.Name = "_btnConfig";
+            this._btnConfig.Size = new System.Drawing.Size(249, 100);
+            this._btnConfig.TabIndex = 12;
+            this._btnConfig.Text = "CẤU HÌNH";
+            this._btnConfig.UseVisualStyleBackColor = false;
+            // 
+            // _labApiStatus
+            // 
+            this._labApiStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this._labApiStatus.Location = new System.Drawing.Point(715, 594);
+            this._labApiStatus.Name = "_labApiStatus";
+            this._labApiStatus.Size = new System.Drawing.Size(736, 100);
+            this._labApiStatus.TabIndex = 13;
+            this._labApiStatus.Text = "label4";
+            this._labApiStatus.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1484, 861);
+            this.Controls.Add(this._labApiStatus);
+            this.Controls.Add(this._btnConfig);
             this.Controls.Add(this._btnStartStop);
             this.Controls.Add(this._labStatus);
             this.Controls.Add(this._txtTextQr2);
@@ -197,6 +222,7 @@
             this.Name = "Form1";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Form1";
+            this.Load += new System.EventHandler(this.Form1_Load_1);
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -217,6 +243,8 @@
         private System.Windows.Forms.TextBox _txtTextQr2;
         private System.Windows.Forms.Label _labStatus;
         private System.Windows.Forms.Button _btnStartStop;
+        private System.Windows.Forms.Button _btnConfig;
+        private System.Windows.Forms.Label _labApiStatus;
     }
 }
 

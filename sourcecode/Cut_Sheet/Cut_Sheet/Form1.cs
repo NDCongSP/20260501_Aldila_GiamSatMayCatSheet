@@ -1,10 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,6 +30,26 @@ namespace Cut_Sheet
         PLCModbusManager _plc;
         private string _plcIp = string.Empty;
         private int _plcPort = 502;
+
+        // HttpClient dùng chung — bypass SSL vì server nội bộ dùng self-signed cert
+        private static readonly HttpClient _httpClient = CreateHttpClient();
+
+        // Badge trạng thái API — hiển thị kết quả gọi API gần nhất
+        //private Label _labApiStatus;
+
+        // Hàng đợi gửi bù — tab-delimited, mỗi dòng 1 bản ghi thất bại
+        private static readonly object _queueFileLock = new object();
+        private static readonly string _queueFilePath =
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "api_retry_queue.txt");
+
+        private static HttpClient CreateHttpClient()
+        {
+            var handler = new HttpClientHandler();
+            // HACK(auto, 2026-05-27): Bỏ qua SSL validation — 192.168.96.10 dùng self-signed cert.
+            //   Xoá khi server được cấp cert hợp lệ.
+            handler.ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) => true;
+            return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
+        }
 
         /// <summary>
         /// địa chỉ tuyệt đối thanh ghi holding cho vùng nhớ D0
@@ -58,8 +80,8 @@ namespace Cut_Sheet
             var endsWithStr = ConfigurationManager.AppSettings["CutSheetQR_EndsWith"] ?? string.Empty;
             var containsStr = ConfigurationManager.AppSettings["CutSheetQR_Contains"] ?? string.Empty;
 
-            _cutSheetEndsWith = endsWithStr.Split(new[] { '|' }, System.StringSplitOptions.RemoveEmptyEntries);
-            _cutSheetContains = containsStr.Split(new[] { '|' }, System.StringSplitOptions.RemoveEmptyEntries);
+            _cutSheetEndsWith = endsWithStr.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+            _cutSheetContains = containsStr.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
         }
 
         private bool IsCutSheetQr(string text)
@@ -73,7 +95,6 @@ namespace Cut_Sheet
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // Đọc giá trị dựa trên Key
             _labStation.Text = ConfigurationManager.AppSettings["Station"];
             _plcIp = ConfigurationManager.AppSettings["PlcIp"];
             _plcPort = int.TryParse(ConfigurationManager.AppSettings["PlcPort"], out int value) ? value : 502;
@@ -83,16 +104,8 @@ namespace Cut_Sheet
             _btnStartStop.Text = "BẮT ĐẦU";
             _btnStartStop.BackColor = Color.FromArgb(0, 192, 0);
 
-            // Thêm nút Config để mở FormConfig
-            var btnConfig = new Button
-            {
-                Text = "Cấu hình",
-                Font = new Font("Microsoft Sans Serif", 12F, FontStyle.Regular),
-                Location = new System.Drawing.Point(350, 594),
-                Size = new System.Drawing.Size(130, 100),
-                FlatStyle = FlatStyle.Flat,
-            };
-            btnConfig.Click += (s, args) =>
+         
+            _btnConfig.Click += (s, args) =>
             {
                 using (var login = new FormLogin())
                 {
@@ -106,7 +119,19 @@ namespace Cut_Sheet
                     LoadQrPatterns();
                 }
             };
-            this.Controls.Add(btnConfig);
+
+            // Badge trạng thái API — nằm bên phải, cùng hàng với các nút bấm
+            //_labApiStatus = new Label
+            //{
+            //    Text = "API: Chưa gửi",
+            //    Font = new Font("Microsoft Sans Serif", 16F, FontStyle.Bold),
+            //    BackColor = Color.DarkGray,
+            //    ForeColor = Color.White,
+            //    Location = new Point(600, 594),
+            //    Size = new Size(960, 100),
+            //    TextAlign = ContentAlignment.MiddleCenter,
+            //};
+            //this.Controls.Add(_labApiStatus);
 
             _btnStartStop.Click += _btnStartStop_Click;
             _txtQR1.KeyDown += _txtQR1_KeyDown;
@@ -126,7 +151,6 @@ namespace Cut_Sheet
                 while (true)
                 {
                     var data = _plc.ReadHoldingRegistersSafe(_d0Register, 1);
-                    // 1. Đọc Digital Output (Coils) - Ví dụ: Trạng thái Relay
                     bool[] coils = _plc.ReadCoilsSafe(_x0Address, 1);
 
                     if (coils != null)
@@ -169,9 +193,12 @@ namespace Cut_Sheet
                         });
                     }
 
-                    Thread.Sleep(200); // Đợi 1 giây trước khi đọc lần tiếp theo
+                    Thread.Sleep(200);
                 }
             });
+
+            // Vòng lặp gửi bù các bản ghi API bị lỗi đang nằm trong file hàng đợi
+            Task.Run(StartRetryLoopAsync);
         }
 
         private void _txtQR2_KeyDown(object sender, KeyEventArgs e)
@@ -204,11 +231,9 @@ namespace Cut_Sheet
                 InvokeIfRequired(_txtTextQr2, () => _txtTextQr2.Text = arr[1]);
                 InvokeIfRequired(_txtQR2, () => _txtQR2.Text = arr[0]);
 
-                // THÊM 2 DÒNG NÀY:
                 e.Handled = true;
                 e.SuppressKeyPress = true;
 
-                // Tự động nhảy sang ô nhập thứ 2 để tiện cho người dùng
                 _btnStartStop.Focus();
 
                 _btnStartStop_Click(sender, e);
@@ -241,16 +266,13 @@ namespace Cut_Sheet
 
                 _qrCode1 = t.Text;
 
-
                 var arr = _qrCode1.Split('-');
                 InvokeIfRequired(_txtTextQr1, () => _txtTextQr1.Text = arr[1]);
                 InvokeIfRequired(_txtQR1, () => _txtQR1.Text = arr[0]);
 
-                // THÊM 2 DÒNG NÀY:
                 e.Handled = true;
                 e.SuppressKeyPress = true;
 
-                // Tự động nhảy sang ô nhập thứ 2 để tiện cho người dùng
                 _txtQR2.Focus();
             }
         }
@@ -272,10 +294,26 @@ namespace Cut_Sheet
 
                 _result = arr1[0].Trim() == arr2[0].Trim();
 
+                var stationName = ConfigurationManager.AppSettings["StationName"] ?? "PPG-01";
+                var scanTime = DateTime.Now;
+
+                // QR1 = phiếu cắt (cut sheet order) → prepregOrderItem
+                var orderItemId = arr1[0].Trim();
+                var orderItemName = arr1[1];
+
+                // QR2 = cuộn Prepreg thực tế → prepregItem
+                var prepregItemId = arr2[0].Trim();
+                var prepregItemName = arr2[1];
+
                 if (_result)
                 {
-                    //MessageBox.Show("KẾT QUẢ: ĐÚNG");
                     _plc.WriteRegisterSafe(_d0Register, 1);
+
+                    _ = PostCuttingValidatorAsync(
+                        stationName,
+                        prepregItemId, prepregItemName,
+                        orderItemId, orderItemName,
+                        scanTime, passed: true);
 
                     InvokeIfRequired(this, () =>
                     {
@@ -287,8 +325,13 @@ namespace Cut_Sheet
                 }
                 else
                 {
-                    //MessageBox.Show("KẾT QUẢ: SAI");
                     _plc.WriteRegisterSafe(_d0Register, 0);
+
+                    _ = PostCuttingValidatorAsync(
+                        stationName,
+                        prepregItemId, prepregItemName,
+                        orderItemId, orderItemName,
+                        scanTime, passed: false);
 
                     _qrCode1 = string.Empty;
                     _qrCode2 = string.Empty;
@@ -336,6 +379,209 @@ namespace Cut_Sheet
             }
         }
 
+        // ─── API: gửi kết quả + retry queue ────────────────────────────────────────
+
+        /// <summary>
+        /// Gửi kết quả quét QR lên Aldila Cutting Validator API (fire-and-forget).
+        /// Nếu thất bại, lưu vào file hàng đợi để gửi lại trong vòng lặp retry.
+        /// </summary>
+        private async Task PostCuttingValidatorAsync(
+            string stationName,
+            string prepregItemId, string prepregItemName,
+            string prepregOrderItemId, string prepregOrderItemName,
+            DateTime scannedAt, bool passed)
+        {
+            var apiUrl = ConfigurationManager.AppSettings["AldilaCuttingApi_Url"];
+            var enabled = ConfigurationManager.AppSettings["AldilaCuttingApi_Enabled"];
+
+            if (string.IsNullOrWhiteSpace(apiUrl) ||
+                !string.Equals(enabled, "true", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            var scannedDateTimeStr = scannedAt.ToString("dd/MM/yyyy hh:mm tt",
+                System.Globalization.CultureInfo.InvariantCulture);
+            var result = passed ? "PASSED" : "FAILED";
+
+            bool success = await TryPostAsync(apiUrl,
+                stationName, prepregItemId, prepregItemName,
+                prepregOrderItemId, prepregOrderItemName,
+                scannedDateTimeStr, result).ConfigureAwait(false);
+
+            if (success)
+            {
+                SetApiBadge(success: true, pendingCount: GetQueueCount());
+            }
+            else
+            {
+                EnqueueRecord(stationName, prepregItemId, prepregItemName,
+                    prepregOrderItemId, prepregOrderItemName, scannedDateTimeStr, result);
+                SetApiBadge(success: false, pendingCount: GetQueueCount());
+            }
+        }
+
+        /// <summary>
+        /// HTTP POST helper. Returns true on 2xx, false on any error/exception.
+        /// </summary>
+        private static async Task<bool> TryPostAsync(
+            string apiUrl,
+            string stationName, string prepregItemId, string prepregItemName,
+            string prepregOrderItemId, string prepregOrderItemName,
+            string scannedDateTime, string result)
+        {
+            try
+            {
+                var json = "{"
+                    + $"\"stationName\":\"{EscapeJson(stationName)}\","
+                    + $"\"prepregItemId\":\"{EscapeJson(prepregItemId)}\","
+                    + $"\"prepregItemName\":\"{EscapeJson(prepregItemName)}\","
+                    + $"\"prepregOrderItemId\":\"{EscapeJson(prepregOrderItemId)}\","
+                    + $"\"prepregOrderItemName\":\"{EscapeJson(prepregOrderItemName)}\","
+                    + $"\"scannedDateTime\":\"{EscapeJson(scannedDateTime)}\","
+                    + $"\"result\":\"{result}\""
+                    + "}";
+
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(apiUrl, content).ConfigureAwait(false);
+
+                System.Diagnostics.Debug.WriteLine(
+                    $"[CuttingApi] {result} → HTTP {(int)response.StatusCode}");
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CuttingApi] Error: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Lưu bản ghi thất bại vào file hàng đợi (tab-delimited, 7 trường).
+        /// Tab không xuất hiện trong dữ liệu QR hoặc tên trạm nên dùng làm dấu phân cách an toàn.
+        /// </summary>
+        private void EnqueueRecord(
+            string stationName, string prepregItemId, string prepregItemName,
+            string prepregOrderItemId, string prepregOrderItemName,
+            string scannedDateTime, string result)
+        {
+            var line = string.Join("\t",
+                stationName, prepregItemId, prepregItemName,
+                prepregOrderItemId, prepregOrderItemName,
+                scannedDateTime, result);
+
+            lock (_queueFileLock)
+                File.AppendAllLines(_queueFilePath, new[] { line }, Encoding.UTF8);
+        }
+
+        private int GetQueueCount()
+        {
+            lock (_queueFileLock)
+            {
+                if (!File.Exists(_queueFilePath)) return 0;
+                return File.ReadAllLines(_queueFilePath, Encoding.UTF8)
+                           .Count(l => !string.IsNullOrWhiteSpace(l));
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật badge trạng thái API trên UI thread.
+        /// </summary>
+        private void SetApiBadge(bool success, int pendingCount = 0)
+        {
+            if (_labApiStatus == null || IsDisposed || !IsHandleCreated) return;
+            InvokeIfRequired(this, () =>
+            {
+                if (_labApiStatus.IsDisposed) return;
+                if (success && pendingCount == 0)
+                {
+                    _labApiStatus.BackColor = Color.FromArgb(0, 160, 0);
+                    _labApiStatus.Text = $"API  ✓  Gửi thành công   ({DateTime.Now:HH:mm:ss})";
+                }
+                else
+                {
+                    _labApiStatus.BackColor = Color.OrangeRed;
+                    _labApiStatus.Text =
+                        $"API  ✗  Lỗi — Đang chờ gửi lại  ({pendingCount} bản ghi)   ({DateTime.Now:HH:mm:ss})";
+                }
+            });
+        }
+
+        /// <summary>
+        /// Vòng lặp nền: cứ 30 giây thử gửi lại các bản ghi trong hàng đợi.
+        /// </summary>
+        private async Task StartRetryLoopAsync()
+        {
+            while (!IsDisposed)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+                if (!IsDisposed)
+                    await RetryQueueAsync().ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Một lượt retry: đọc file, thử POST từng dòng, xoá bản ghi thành công, ghi lại file.
+        /// </summary>
+        private async Task RetryQueueAsync()
+        {
+            string[] lines;
+            lock (_queueFileLock)
+            {
+                if (!File.Exists(_queueFilePath)) return;
+                lines = File.ReadAllLines(_queueFilePath, Encoding.UTF8)
+                            .Where(l => !string.IsNullOrWhiteSpace(l))
+                            .ToArray();
+            }
+            if (lines.Length == 0) return;
+
+            var apiUrl = ConfigurationManager.AppSettings["AldilaCuttingApi_Url"];
+            var enabled = ConfigurationManager.AppSettings["AldilaCuttingApi_Enabled"];
+            if (string.IsNullOrWhiteSpace(apiUrl) ||
+                !string.Equals(enabled, "true", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            var remaining = new List<string>();
+            foreach (var line in lines)
+            {
+                var parts = line.Split('\t');
+                if (parts.Length != 7) { remaining.Add(line); continue; }
+
+                bool sent = await TryPostAsync(apiUrl,
+                    parts[0], parts[1], parts[2],
+                    parts[3], parts[4], parts[5], parts[6])
+                    .ConfigureAwait(false);
+
+                System.Diagnostics.Debug.WriteLine(
+                    $"[CuttingApi] retry {parts[6]}  {(sent ? "OK" : "FAIL")}");
+
+                if (!sent) remaining.Add(line);
+            }
+
+            lock (_queueFileLock)
+            {
+                if (remaining.Count == 0)
+                    File.Delete(_queueFilePath);
+                else
+                    File.WriteAllLines(_queueFilePath, remaining, Encoding.UTF8);
+            }
+
+            // Cập nhật badge nếu ít nhất một bản ghi được gửi thành công trong lần này
+            if (remaining.Count < lines.Length)
+                SetApiBadge(success: remaining.Count == 0, pendingCount: remaining.Count);
+        }
+
+        // ─── Helpers ────────────────────────────────────────────────────────────────
+
+        /// <summary>Escape các ký tự đặc biệt trong chuỗi JSON.</summary>
+        private static string EscapeJson(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return string.Empty;
+            return s.Replace("\\", "\\\\")
+                    .Replace("\"", "\\\"")
+                    .Replace("\r", "\\r")
+                    .Replace("\n", "\\n")
+                    .Replace("\t", "\\t");
+        }
+
         public static void InvokeIfRequired(Control control, Action action)
         {
             if (control.InvokeRequired)
@@ -349,6 +595,11 @@ namespace Cut_Sheet
         }
 
         private void _txtTextQr1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void Form1_Load_1(object sender, EventArgs e)
         {
 
         }
