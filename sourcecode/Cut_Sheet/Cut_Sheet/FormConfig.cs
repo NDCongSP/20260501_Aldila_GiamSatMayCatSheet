@@ -150,14 +150,22 @@ namespace Cut_Sheet
                 return;
             }
 
-            SaveAppSetting("Config_Username", username);
-            SaveAppSetting("Config_Password", HashHelper.MD5Hash(newPass));
+            try
+            {
+                SaveAppSetting("Config_Username", username);
+                SaveAppSetting("Config_Password", HashHelper.MD5Hash(newPass));
 
-            _txtNewPassword.Clear();
-            _txtConfirmPassword.Clear();
+                _txtNewPassword.Clear();
+                _txtConfirmPassword.Clear();
 
-            MessageBox.Show("Đã cập nhật tài khoản thành công.", "Thông báo",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Đã cập nhật tài khoản thành công.", "Thông báo",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi khi lưu tài khoản: {ex.Message}", "Lỗi",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         // ─── Save / Close ─────────────────────────────────────────────────
@@ -166,8 +174,27 @@ namespace Cut_Sheet
         {
             try
             {
+                // Validate password if user is attempting to change it
+                var newPass = _txtNewPassword.Text;
+                var confirm = _txtConfirmPassword.Text;
+                if (!string.IsNullOrEmpty(newPass) && newPass != confirm)
+                {
+                    MessageBox.Show("Mật khẩu xác nhận không khớp.", "Lỗi",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    _txtConfirmPassword.Clear();
+                    _txtConfirmPassword.Focus();
+                    return;
+                }
+
                 SaveQrPatterns();
                 SaveErpSettings();
+
+                // Save account: username always; password only when a new one was entered
+                var username = _txtCurrentUsername.Text.Trim();
+                if (!string.IsNullOrEmpty(username))
+                    SaveAppSetting("Config_Username", username);
+                if (!string.IsNullOrEmpty(newPass))
+                    SaveAppSetting("Config_Password", HashHelper.MD5Hash(newPass));
 
                 MessageBox.Show("Đã lưu cấu hình thành công.", "Thông báo",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);

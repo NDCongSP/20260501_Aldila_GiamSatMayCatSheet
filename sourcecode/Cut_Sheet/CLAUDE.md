@@ -188,23 +188,20 @@ const delay = 350; // gán delay bằng 350
 ```yaml
 # Cập nhật phần này MỖI KHI kết thúc session làm việc
 active_context:
-  current_task: "Đã hoàn thành API Badge UI + Retry Queue"
+  current_task: "Fix FormConfig: _btnSave_Click không lưu tài khoản + thiếu try-catch password"
 
   related_files:
-    - "sourcecode/Cut_Sheet/Cut_Sheet/Form1.cs"
-    - "sourcecode/Cut_Sheet/Cut_Sheet/PLCModbusManager.cs"
     - "sourcecode/Cut_Sheet/Cut_Sheet/FormConfig.cs"
-    - "sourcecode/Cut_Sheet/Cut_Sheet/FormConfig.Designer.cs"
-    - "sourcecode/Cut_Sheet/Cut_Sheet/App.config"
 
   blocked_by: ""
 
   next_step: >
-    Các tính năng chính đã hoàn thiện. Nếu cần tiếp tục:
-    - Xác nhận với backend mapping field (QR2→prepregItem, QR1→prepregOrderItem)
-    - Kiểm tra xem API có cần header xác thực (Bearer / API key) không
-    - Test thực tế: quan sát badge màu xanh/đỏ khi có/không có mạng đến 192.168.96.10
-    - Test retry: tắt API server, quét QR → badge đỏ → bật lại API → sau 30s badge xanh
+    Bug đã fix. Test checklist:
+    - Đổi password → click Lưu (KHÔNG click "Cập nhật tài khoản") → đóng → mở lại → đăng nhập bằng password mới → phải thành công
+    - Đổi password mismatch → click Lưu → phải thấy lỗi "không khớp", không đóng form
+    - LƯU Ý debug từ VS: mỗi lần Build, VS copy App.config gốc đè bin/Debug/Cut_Sheet.exe.config → mất config đã lưu. KHÔNG phải bug code.
+    - Xác nhận với backend mapping: QR2→prepregItem, QR1→prepregOrderItem
+    - Kiểm tra API có cần header xác thực không
 
   last_session: "2026-05-27"
 
@@ -266,6 +263,26 @@ Task hiện tại: [mô tả]. File cần làm việc: [list file].
 [CHORE]    package.json    — Upgrade Zod từ 3.21 → 3.23
 [REFACTOR] lib/api.ts      — Tách error handler thành hàm riêng handleApiError()
 ```
+
+### [2026-05-27] — Session: Fix FormConfig Save + Password
+
+```
+[FIX]   FormConfig.cs   — _btnSave_Click: thêm lưu tài khoản (username + password nếu được nhập)
+[FIX]   FormConfig.cs   — _btnSave_Click: validate password match TRƯỚC khi lưu bất cứ thứ gì
+[FIX]   FormConfig.cs   — _btnChangePassword_Click: thêm try-catch, báo lỗi nếu ghi file thất bại
+```
+
+**Root cause:**
+- `_btnSave_Click` chỉ gọi `SaveQrPatterns()` + `SaveErpSettings()` — không lưu tab Tài khoản
+- User nhập password mới → click "Lưu" → báo thành công nhưng password KHÔNG thay đổi
+- `_btnChangePassword_Click` thiếu try-catch: nếu ghi file lỗi (quyền, lock...), WinForms nuốt exception, user không biết
+
+**Behavior sau fix:**
+- "Lưu" lưu TẤT CẢ: QR patterns + ERP + username + password (nếu được nhập)
+- "Cập nhật tài khoản" vẫn hoạt động như cũ (lưu tức thì, không cần nhấn Lưu thêm)
+- Nếu password mới không khớp xác nhận → báo lỗi, không đóng form, không lưu gì cả
+
+---
 
 ### [2026-05-27] — Session: API Badge UI + Retry Queue
 

@@ -19,7 +19,7 @@ namespace Cut_Sheet
         private void _btnLogin_Click(object sender, EventArgs e)
         {
             var expectedUser = ConfigurationManager.AppSettings["Config_Username"] ?? "admin";
-            var expectedPass = ConfigurationManager.AppSettings["Config_Password"] ?? HashHelper.MD5Hash("admin");
+            var expectedPass = ConfigurationManager.AppSettings["Config_Password"] ?? HashHelper.MD5Hash("admin@123456");
 
             if (_txtUsername.Text.Trim() == expectedUser &&
                 HashHelper.MD5Hash(_txtPassword.Text) == expectedPass)

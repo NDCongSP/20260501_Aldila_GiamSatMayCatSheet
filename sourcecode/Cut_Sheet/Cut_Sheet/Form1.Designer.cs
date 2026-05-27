@@ -192,9 +192,9 @@
             // _labApiStatus
             // 
             this._labApiStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this._labApiStatus.Location = new System.Drawing.Point(715, 594);
+            this._labApiStatus.Location = new System.Drawing.Point(712, 594);
             this._labApiStatus.Name = "_labApiStatus";
-            this._labApiStatus.Size = new System.Drawing.Size(736, 100);
+            this._labApiStatus.Size = new System.Drawing.Size(760, 100);
             this._labApiStatus.TabIndex = 13;
             this._labApiStatus.Text = "label4";
             this._labApiStatus.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
