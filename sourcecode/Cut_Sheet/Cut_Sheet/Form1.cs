@@ -23,6 +23,10 @@ namespace Cut_Sheet
 
         public bool _result { get; set; } = false;
 
+        private string _stationName = "PPG-01";
+        private string _apiUrl = string.Empty;
+        private bool _apiEnabled = false;
+
         // Patterns nhận dạng QR Phiếu Cắt — load từ App.config, refresh khi mở FormConfig
         private string[] _cutSheetEndsWith = new string[0];
         private string[] _cutSheetContains = new string[0];
@@ -95,7 +99,11 @@ namespace Cut_Sheet
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            _labStation.Text = ConfigurationManager.AppSettings["Station"];
+            _stationName = ConfigurationManager.AppSettings["Station"] ?? "PPG-01";
+            _apiUrl = ConfigurationManager.AppSettings["AldilaCuttingApi_Url"] ?? string.Empty;
+            _apiEnabled = string.Equals(ConfigurationManager.AppSettings["AldilaCuttingApi_Enabled"],
+                "true", StringComparison.OrdinalIgnoreCase);
+            _labStation.Text = $"Station: {_stationName}";
             _plcIp = ConfigurationManager.AppSettings["PlcIp"];
             _plcPort = int.TryParse(ConfigurationManager.AppSettings["PlcPort"], out int value) ? value : 502;
 
@@ -294,7 +302,6 @@ namespace Cut_Sheet
 
                 _result = arr1[0].Trim() == arr2[0].Trim();
 
-                var stationName = ConfigurationManager.AppSettings["StationName"] ?? "PPG-01";
                 var scanTime = DateTime.Now;
 
                 // QR1 = phiếu cắt (cut sheet order) → prepregOrderItem
@@ -310,7 +317,7 @@ namespace Cut_Sheet
                     _plc.WriteRegisterSafe(_d0Register, 1);
 
                     _ = PostCuttingValidatorAsync(
-                        stationName,
+                        _stationName,
                         prepregItemId, prepregItemName,
                         orderItemId, orderItemName,
                         scanTime, passed: true);
@@ -328,7 +335,7 @@ namespace Cut_Sheet
                     _plc.WriteRegisterSafe(_d0Register, 0);
 
                     _ = PostCuttingValidatorAsync(
-                        stationName,
+                        _stationName,
                         prepregItemId, prepregItemName,
                         orderItemId, orderItemName,
                         scanTime, passed: false);
@@ -391,18 +398,14 @@ namespace Cut_Sheet
             string prepregOrderItemId, string prepregOrderItemName,
             DateTime scannedAt, bool passed)
         {
-            var apiUrl = ConfigurationManager.AppSettings["AldilaCuttingApi_Url"];
-            var enabled = ConfigurationManager.AppSettings["AldilaCuttingApi_Enabled"];
-
-            if (string.IsNullOrWhiteSpace(apiUrl) ||
-                !string.Equals(enabled, "true", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(_apiUrl) || !_apiEnabled)
                 return;
 
             var scannedDateTimeStr = scannedAt.ToString("dd/MM/yyyy hh:mm tt",
                 System.Globalization.CultureInfo.InvariantCulture);
             var result = passed ? "PASSED" : "FAILED";
 
-            bool success = await TryPostAsync(apiUrl,
+            bool success = await TryPostAsync(_apiUrl,
                 stationName, prepregItemId, prepregItemName,
                 prepregOrderItemId, prepregOrderItemName,
                 scannedDateTimeStr, result).ConfigureAwait(false);
@@ -533,10 +536,7 @@ namespace Cut_Sheet
             }
             if (lines.Length == 0) return;
 
-            var apiUrl = ConfigurationManager.AppSettings["AldilaCuttingApi_Url"];
-            var enabled = ConfigurationManager.AppSettings["AldilaCuttingApi_Enabled"];
-            if (string.IsNullOrWhiteSpace(apiUrl) ||
-                !string.Equals(enabled, "true", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(_apiUrl) || !_apiEnabled)
                 return;
 
             var remaining = new List<string>();
@@ -545,7 +545,7 @@ namespace Cut_Sheet
                 var parts = line.Split('\t');
                 if (parts.Length != 7) { remaining.Add(line); continue; }
 
-                bool sent = await TryPostAsync(apiUrl,
+                bool sent = await TryPostAsync(_apiUrl,
                     parts[0], parts[1], parts[2],
                     parts[3], parts[4], parts[5], parts[6])
                     .ConfigureAwait(false);

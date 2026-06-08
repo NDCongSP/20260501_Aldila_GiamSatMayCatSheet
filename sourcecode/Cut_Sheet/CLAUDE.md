@@ -188,22 +188,17 @@ const delay = 350; // gán delay bằng 350
 ```yaml
 # Cập nhật phần này MỖI KHI kết thúc session làm việc
 active_context:
-  current_task: "Fix FormConfig: _btnSave_Click không lưu tài khoản + thiếu try-catch password"
+  current_task: "Refactor Form1.cs: tập trung toàn bộ AppSettings reads vào Form1_Load"
 
   related_files:
-    - "sourcecode/Cut_Sheet/Cut_Sheet/FormConfig.cs"
+    - "sourcecode/Cut_Sheet/Cut_Sheet/Form1.cs"
 
   blocked_by: ""
 
   next_step: >
-    Bug đã fix. Test checklist:
-    - Đổi password → click Lưu (KHÔNG click "Cập nhật tài khoản") → đóng → mở lại → đăng nhập bằng password mới → phải thành công
-    - Đổi password mismatch → click Lưu → phải thấy lỗi "không khớp", không đóng form
-    - LƯU Ý debug từ VS: mỗi lần Build, VS copy App.config gốc đè bin/Debug/Cut_Sheet.exe.config → mất config đã lưu. KHÔNG phải bug code.
-    - Xác nhận với backend mapping: QR2→prepregItem, QR1→prepregOrderItem
-    - Kiểm tra API có cần header xác thực không
+    - Không còn task refactor config đang chờ. Tiếp tục theo yêu cầu mới.
 
-  last_session: "2026-05-27"
+  last_session: "2026-06-08"
 
   open_questions:
     - "API 192.168.96.10 có yêu cầu header xác thực không?"
@@ -263,6 +258,21 @@ Task hiện tại: [mô tả]. File cần làm việc: [list file].
 [CHORE]    package.json    — Upgrade Zod từ 3.21 → 3.23
 [REFACTOR] lib/api.ts      — Tách error handler thành hàm riêng handleApiError()
 ```
+
+### [2026-06-08] — Session: Refactor tập trung config reads
+
+```
+[REFACTOR]   Form1.cs   — Chuyển StationName từ local var → field _stationName, khởi tạo 1 lần trong Form1_Load
+[REFACTOR]   Form1.cs   — Chuyển AldilaCuttingApi_Url → field _apiUrl (string), khởi tạo 1 lần trong Form1_Load
+[REFACTOR]   Form1.cs   — Chuyển AldilaCuttingApi_Enabled → field _apiEnabled (bool), khởi tạo 1 lần trong Form1_Load
+```
+
+**Chi tiết:**
+- `PostCuttingValidatorAsync` và `RetryQueueAsync` không còn đọc config mỗi lần gọi
+- `_apiEnabled` lưu dạng `bool` (parse 1 lần) thay vì so sánh chuỗi mỗi lần
+- `LoadQrPatterns()` vẫn đọc lại từ config mỗi khi FormConfig đóng — intentional (QR patterns có thể đổi runtime)
+
+---
 
 ### [2026-05-27] — Session: Fix FormConfig Save + Password
 
